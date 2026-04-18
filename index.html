@@ -2,74 +2,199 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>Milán AI - Végső Stabil Verzió</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Milán AI - Gemma Edition</title>
     <style>
-        :root { --accent: #4285f4; --bg: #050505; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .orb { 
-            width: 150px; height: 150px; border-radius: 50%; 
-            background: radial-gradient(circle, #4285f4 0%, #000 90%); 
-            display: flex; align-items: center; justify-content: center; 
-            font-size: 80px; cursor: pointer; transition: 0.4s;
-            box-shadow: 0 0 40px rgba(66, 133, 244, 0.4); border: 2px solid rgba(255,255,255,0.1);
+        :root {
+            --primary: #00d4ff;
+            --bg: #0a0a0c;
+            --card: #16161a;
         }
-        .listening { transform: scale(1.1); box-shadow: 0 0 60px #4285f4; animation: pulse 1s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        #res-box { margin-top: 30px; padding: 25px; width: 85%; max-width: 500px; background: rgba(255,255,255,0.05); border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); font-size: 1.2rem; }
+
+        body {
+            background-color: var(--bg);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+            color: var(--primary);
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+
+        .orb {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, var(--primary), #000);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
+            font-weight: bold;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.3), inset 0 0 20px rgba(255,255,255,0.2);
+            user-select: none;
+            border: 4px solid rgba(255,255,255,0.1);
+        }
+
+        .orb:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 50px rgba(0, 212, 255, 0.6);
+        }
+
+        .orb:active {
+            transform: scale(0.95);
+        }
+
+        .listening {
+            animation: pulse 1.5s infinite;
+            background: radial-gradient(circle, #ff0055, #000);
+            box-shadow: 0 0 60px rgba(255, 0, 85, 0.8);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        #status {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        #response-container {
+            margin-top: 20px;
+            padding: 20px;
+            width: 80%;
+            max-width: 600px;
+            background: var(--card);
+            border-radius: 15px;
+            border: 1px solid #333;
+            text-align: center;
+            min-height: 50px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .instruction {
+            margin-top: 15px;
+            font-size: 0.8rem;
+            color: #555;
+        }
     </style>
 </head>
 <body>
 
+    <h1>MILÁN AI</h1>
+    
     <div class="orb" id="orb">M</div>
-    <div id="res-box">Milán, most a legstabilabb alapmodellt használom. Szia!</div>
+    
+    <div id="status">Kattints rám a beszédhez</div>
+
+    <div id="response-container">
+        <div id="res">Szia Milán! A rendszer készen áll.</div>
+    </div>
+
+    <p class="instruction">Használd a Chrome böngészőt a legjobb élményhez!</p>
 
     <script>
-        const KEY = "AIzaSyBgYxmc5B9sj0v3DkhcyXhEzwZYOpb6abs"; 
+        // A te működő adataid
+        const API_KEY = "AIzaSyCtcSJ1xM7-oV-W8nbepz0d0evZOKKD2FI";
+        const MODEL_NAME = "gemma-3-4b-it";
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
 
         const orb = document.getElementById('orb');
-        const resBox = document.getElementById('res-box');
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = 'hu-HU';
+        const resBox = document.getElementById('res');
+        const statusText = document.getElementById('status');
 
-        orb.onclick = () => { 
-            recognition.start(); 
-            orb.classList.add('listening'); 
-            resBox.innerText = "Hallgatom...";
-        };
+        // Beszédfelismerés beállítása
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            resBox.innerText = "A böngésződ nem támogatja a beszédfelismerést. Próbáld Chrome-mal!";
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'hu-HU';
+            recognition.interimResults = false;
 
-        recognition.onresult = async (event) => {
-            const speech = event.results[0][0].transcript;
-            orb.classList.remove('listening');
-            resBox.innerText = "Gondolkodom...";
-
-            try {
-                // A legbiztosabb URL és modellnév párosítás
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${KEY}`;
-                
-                const response = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: "Válaszolj magyarul, röviden: " + speech }] }]
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (data.candidates && data.candidates[0].content) {
-                    const reply = data.candidates[0].content.parts[0].text;
-                    resBox.innerText = reply;
-                    const u = new SpeechSynthesisUtterance(reply);
-                    u.lang = 'hu-HU';
-                    window.speechSynthesis.speak(u);
-                } else if (data.error) {
-                    // Ha még ez sem jó, kiírjuk miért utasít el
-                    resBox.innerText = "Hiba: " + data.error.message;
+            orb.onclick = () => {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.log("Már fut a felismerés...");
                 }
-            } catch (e) {
-                resBox.innerText = "Hálózati hiba történt.";
-            }
-        };
+            };
+
+            recognition.onstart = () => {
+                orb.classList.add('listening');
+                statusText.innerText = "Hallgatlak...";
+                resBox.innerText = "...";
+            };
+
+            recognition.onresult = async (event) => {
+                const userSpeech = event.results[0][0].transcript;
+                statusText.innerText = "Gondolkodom...";
+                orb.classList.remove('listening');
+                
+                // AI hívása
+                try {
+                    const response = await fetch(API_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{ text: "Te egy segítőkész AI vagy. Válaszolj Milánnak röviden, magyarul: " + userSpeech }]
+                            }]
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.candidates && data.candidates[0].content) {
+                        const aiReply = data.candidates[0].content.parts[0].text;
+                        resBox.innerText = aiReply;
+                        statusText.innerText = "Válaszolok...";
+                        
+                        // Beszéd szintézis (az AI megszólal)
+                        const utterance = new SpeechSynthesisUtterance(aiReply);
+                        utterance.lang = 'hu-HU';
+                        window.speechSynthesis.speak(utterance);
+                        
+                        utterance.onend = () => {
+                            statusText.innerText = "Kész! Kattints újra!";
+                        };
+                    } else {
+                        resBox.innerText = "Hiba történt a válaszadásnál.";
+                        statusText.innerText = "Próbáld újra!";
+                    }
+                } catch (error) {
+                    resBox.innerText = "Hálózati hiba történt.";
+                    statusText.innerText = "Ellenőrizd a netet!";
+                    console.error(error);
+                }
+            };
+
+            recognition.onerror = () => {
+                orb.classList.remove('listening');
+                statusText.innerText = "Hiba történt a mikrofonnál.";
+            };
+
+            recognition.onend = () => {
+                orb.classList.remove('listening');
+            };
+        }
     </script>
 </body>
 </html>
