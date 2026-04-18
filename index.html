@@ -2,31 +2,44 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>Milán AI - Gemini FIX</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Milán AI - Végleges</title>
     <style>
         :root { --accent: #4285f4; --bg: #050505; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .milan-orb { width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, #4285f4 0%, #000 90%); display: flex; align-items: center; justify-content: center; font-size: 80px; cursor: pointer; transition: 0.4s; box-shadow: 0 0 40px rgba(66, 133, 244, 0.3); }
-        .listening { transform: scale(1.1); animation: pulse 1s infinite; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        .milan-orb { 
+            width: 150px; height: 150px; border-radius: 50%; 
+            background: radial-gradient(circle, #4285f4 0%, #000 90%); 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 80px; cursor: pointer; transition: 0.4s; 
+            box-shadow: 0 0 40px rgba(66, 133, 244, 0.3); border: 2px solid rgba(255,255,255,0.1);
+        }
+        .listening { transform: scale(1.1); box-shadow: 0 0 60px var(--accent); animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         #res-box { margin-top: 30px; padding: 25px; width: 85%; max-width: 600px; background: rgba(255,255,255,0.05); border-radius: 20px; text-align: center; font-size: 1.2rem; min-height: 80px; border: 1px solid rgba(255,255,255,0.1); }
+        #status { margin-top: 15px; color: #4285f4; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
     <div class="milan-orb" id="orb">M</div>
-    <div id="res-box">Most már tényleg megszólalok! Kattints és beszélj!</div>
+    <div id="status">KATTINTS ÉS BESZÉLJ</div>
+    <div id="res-box">Szia Milán! Most már tényleg működnöm kell. Mondj valamit!</div>
 
     <script>
-        // A kulcsodat hagyd meg ilyennek!
+        // A TE KULCSOD
         const GEMINI_KEY = "AIzaSyBgYxmc5B9sj0v3DkhcyXhEzwZYOpb6abs"; 
         
         const orb = document.getElementById('orb');
         const resBox = document.getElementById('res-box');
+        const statusTxt = document.getElementById('status');
+        
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
 
-        orb.onclick = () => { recognition.start(); orb.classList.add('listening'); };
+        orb.onclick = () => {
+            try { recognition.start(); orb.classList.add('listening'); statusTxt.innerText = "HALLGATLAK..."; } catch(e) {}
+        };
 
         recognition.onresult = async (event) => {
             const userSpeech = event.results[0][0].transcript;
@@ -34,14 +47,14 @@
             resBox.innerText = "Gondolkodom...";
 
             try {
-                // ITT A VÉGLEGES JAVÍTÁS (v1beta és flash-latest)
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_KEY}`;
+                // Átváltottunk a legstabilabb v1beta/gemini-pro párosra
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_KEY}`;
                 
                 const response = await fetch(url, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: "Válaszolj magyarul, röviden: " + userSpeech }] }]
+                        contents: [{ parts: [{ text: "Te egy kedves magyar asszisztens vagy. Válaszolj röviden: " + userSpeech }] }]
                     })
                 });
 
@@ -49,17 +62,38 @@
                 
                 if (data.candidates && data.candidates[0].content) {
                     const reply = data.candidates[0].content.parts[0].text;
-                    resBox.innerText = reply;
-                    const utter = new SpeechSynthesisUtterance(reply);
-                    utter.lang = 'hu-HU';
-                    window.speechSynthesis.speak(utter);
-                } else {
-                    resBox.innerText = "Hiba: " + (data.error ? data.error.message : "Próbáld újra!");
+                    speak(reply);
+                } else if (data.error) {
+                    // Ha még ez sem jó, próbáljuk meg a 1.0-pro nevet
+                    resBox.innerText = "Próbálkozás másik névvel...";
+                    retryWithNewName(userSpeech);
                 }
             } catch (e) {
-                resBox.innerText = "Hálózati hiba. Futtasd a fájlt a saját gépedről!";
+                resBox.innerText = "Hálózati hiba. Futtasd a gépedről!";
             }
+            statusTxt.innerText = "KATTINTS ÉS BESZÉLJ";
         };
+
+        async function retryWithNewName(speech) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=${GEMINI_KEY}`;
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: speech }] }]
+                })
+            });
+            const data = await response.json();
+            if (data.candidates) speak(data.candidates[0].content.parts[0].text);
+            else resBox.innerText = "Sajnos a Google elutasítja a kérést. Ellenőrizd a kulcsod az AI Studio-ban!";
+        }
+
+        function speak(text) {
+            resBox.innerText = text;
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'hu-HU';
+            window.speechSynthesis.speak(utter);
+        }
     </script>
 </body>
 </html>
