@@ -2,24 +2,18 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>Milán AI - Stabil Verzió</title>
+    <title>Milán AI - Végső Fix</title>
     <style>
         :root { --accent: #4285f4; --bg: #050505; }
         body { background: var(--bg); color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .orb { 
-            width: 150px; height: 150px; border-radius: 50%; 
-            background: radial-gradient(circle, #4285f4 0%, #000 90%); 
-            display: flex; align-items: center; justify-content: center; 
-            font-size: 80px; cursor: pointer; transition: 0.4s;
-            box-shadow: 0 0 40px rgba(66, 133, 244, 0.4);
-        }
+        .orb { width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, #4285f4 0%, #000 90%); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 80px; box-shadow: 0 0 40px rgba(66, 133, 244, 0.4); }
         #res { margin-top: 30px; padding: 25px; width: 85%; max-width: 500px; background: rgba(255,255,255,0.05); border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
     </style>
 </head>
 <body>
 
     <div class="orb" id="orb">M</div>
-    <div id="res">Milán, most a stabil 1.5-ös modellt használjuk. Próbáld meg most!</div>
+    <div id="res">Milán, próbáld meg most! Frissítettem a "kapu" kulcsát.</div>
 
     <script>
         const KEY = "AIzaSyBgYxmc5B9sj0v3DkhcyXhEzwZYOpb6abs"; 
@@ -29,36 +23,37 @@
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
 
-        orb.onclick = () => { recognition.start(); resBox.innerText = "Hallgatlak..."; };
+        orb.onclick = () => { recognition.start(); resBox.innerText = "Hallgatom..."; };
 
         recognition.onresult = async (event) => {
             const speech = event.results[0][0].transcript;
             resBox.innerText = "Gondolkodom...";
 
             try {
-                // ÁTVÁLTOTTUNK A STABIL 1.5-re (gemini-1.5-flash)
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${KEY}`;
+                // JAVÍTOTT URL: v1-es stabil ág és gemini-1.5-flash-001 (ez a legbiztosabb név)
+                const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${KEY}`;
                 
                 const response = await fetch(url, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: "Válaszolj magyarul, röviden: " + speech }] }]
+                        contents: [{ parts: [{ text: "Válaszolj magyarul, röviden Milánnak: " + speech }] }]
                     })
                 });
 
                 const data = await response.json();
                 
-                if (data.candidates) {
+                if (data.candidates && data.candidates[0].content) {
                     const reply = data.candidates[0].content.parts[0].text;
                     resBox.innerText = reply;
                     window.speechSynthesis.speak(new SpeechSynthesisUtterance(reply));
                 } else {
-                    // Ha még mindig kvóta hiba van, írjuk ki
-                    resBox.innerText = "Google üzenet: " + (data.error ? data.error.message : "Próbáld újra 10 másodperc múlva!");
+                    // Ha még mindig hiba van, nézzük meg, mit ír a v1-es ág!
+                    resBox.innerText = "Hiba: " + (data.error ? data.error.message : "Váratlan hiba");
+                    console.log("DEBUG INFO:", data);
                 }
             } catch (e) {
-                resBox.innerText = "Hiba történt. Futtasd a gépedről a fájlt!";
+                resBox.innerText = "Hálózati hiba történt a szerverrel.";
             }
         };
     </script>
