@@ -2,10 +2,10 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>Milán AI - Gemini 2.0 Flash</title>
+    <title>Milán AI - Stabil Verzió</title>
     <style>
         :root { --accent: #4285f4; --bg: #050505; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
         .orb { 
             width: 150px; height: 150px; border-radius: 50%; 
             background: radial-gradient(circle, #4285f4 0%, #000 90%); 
@@ -13,61 +13,52 @@
             font-size: 80px; cursor: pointer; transition: 0.4s;
             box-shadow: 0 0 40px rgba(66, 133, 244, 0.4);
         }
-        .listening { transform: scale(1.1); box-shadow: 0 0 60px #4285f4; animation: pulse 1s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        #res-box { margin-top: 30px; padding: 25px; width: 85%; max-width: 500px; background: rgba(255,255,255,0.05); border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); font-size: 1.2rem; }
+        #res { margin-top: 30px; padding: 25px; width: 85%; max-width: 500px; background: rgba(255,255,255,0.05); border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
     </style>
 </head>
 <body>
 
     <div class="orb" id="orb">M</div>
-    <div id="res-box">Szia Milán! Ha megnyomtad az ENABLE gombot, most már beszélni fogok!</div>
+    <div id="res">Milán, most a stabil 1.5-ös modellt használjuk. Próbáld meg most!</div>
 
     <script>
-        // A TE KULCSOD
         const KEY = "AIzaSyBgYxmc5B9sj0v3DkhcyXhEzwZYOpb6abs"; 
 
         const orb = document.getElementById('orb');
-        const resBox = document.getElementById('res-box');
+        const resBox = document.getElementById('res');
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
 
-        orb.onclick = () => { 
-            recognition.start(); 
-            orb.classList.add('listening'); 
-            resBox.innerText = "Hallgatlak...";
-        };
+        orb.onclick = () => { recognition.start(); resBox.innerText = "Hallgatlak..."; };
 
         recognition.onresult = async (event) => {
             const speech = event.results[0][0].transcript;
-            orb.classList.remove('listening');
             resBox.innerText = "Gondolkodom...";
 
             try {
-                // Gemini 2.0 Flash hívása
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${KEY}`;
+                // ÁTVÁLTOTTUNK A STABIL 1.5-re (gemini-1.5-flash)
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${KEY}`;
                 
                 const response = await fetch(url, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: "Te Milán magyar asszisztense vagy. Válaszolj röviden: " + speech }] }]
+                        contents: [{ parts: [{ text: "Válaszolj magyarul, röviden: " + speech }] }]
                     })
                 });
 
                 const data = await response.json();
                 
-                if (data.candidates && data.candidates[0].content) {
+                if (data.candidates) {
                     const reply = data.candidates[0].content.parts[0].text;
                     resBox.innerText = reply;
-                    const u = new SpeechSynthesisUtterance(reply);
-                    u.lang = 'hu-HU';
-                    window.speechSynthesis.speak(u);
+                    window.speechSynthesis.speak(new SpeechSynthesisUtterance(reply));
                 } else {
-                    resBox.innerText = "Hiba: " + (data.error ? data.error.message : "Próbáld újra pár perc múlva!");
+                    // Ha még mindig kvóta hiba van, írjuk ki
+                    resBox.innerText = "Google üzenet: " + (data.error ? data.error.message : "Próbáld újra 10 másodperc múlva!");
                 }
             } catch (e) {
-                resBox.innerText = "Kapcsolódási hiba. Mentsd le a fájlt a gépedre!";
+                resBox.innerText = "Hiba történt. Futtasd a gépedről a fájlt!";
             }
         };
     </script>
