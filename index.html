@@ -2,10 +2,10 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>Milán AI - Végleges Megoldás</title>
+    <title>Milán AI - Gemini 2.0 Flash</title>
     <style>
         :root { --accent: #4285f4; --bg: #050505; }
-        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
         .orb { 
             width: 150px; height: 150px; border-radius: 50%; 
             background: radial-gradient(circle, #4285f4 0%, #000 90%); 
@@ -15,26 +15,27 @@
         }
         .listening { transform: scale(1.1); box-shadow: 0 0 60px #4285f4; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        #res { margin-top: 30px; padding: 25px; width: 85%; max-width: 500px; background: rgba(255,255,255,0.05); border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        #res-box { margin-top: 30px; padding: 25px; width: 85%; max-width: 500px; background: rgba(255,255,255,0.05); border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); font-size: 1.2rem; }
     </style>
 </head>
 <body>
 
     <div class="orb" id="orb">M</div>
-    <div id="res">Milán, kattints rám és mondd: "Szia!"</div>
+    <div id="res-box">Szia Milán! Ha megnyomtad az ENABLE gombot, most már beszélni fogok!</div>
 
     <script>
+        // A TE KULCSOD
         const KEY = "AIzaSyBgYxmc5B9sj0v3DkhcyXhEzwZYOpb6abs"; 
 
         const orb = document.getElementById('orb');
-        const resBox = document.getElementById('res');
+        const resBox = document.getElementById('res-box');
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
 
         orb.onclick = () => { 
             recognition.start(); 
             orb.classList.add('listening'); 
-            resBox.innerText = "Hallgatom a hangod...";
+            resBox.innerText = "Hallgatlak...";
         };
 
         recognition.onresult = async (event) => {
@@ -42,15 +43,15 @@
             orb.classList.remove('listening');
             resBox.innerText = "Gondolkodom...";
 
-            // Megpróbáljuk a hívást
             try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${KEY}`;
+                // Gemini 2.0 Flash hívása
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${KEY}`;
                 
                 const response = await fetch(url, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: "Te Milán hűséges AI-ja vagy. Válaszolj magyarul, röviden: " + speech }] }]
+                        contents: [{ parts: [{ text: "Te Milán magyar asszisztense vagy. Válaszolj röviden: " + speech }] }]
                     })
                 });
 
@@ -63,10 +64,10 @@
                     u.lang = 'hu-HU';
                     window.speechSynthesis.speak(u);
                 } else {
-                    resBox.innerText = "Sajnos a Google még mindig nem enged be. Ellenőrizd az 'Enable' gombot a Cloud-ban!";
+                    resBox.innerText = "Hiba: " + (data.error ? data.error.message : "Próbáld újra pár perc múlva!");
                 }
             } catch (e) {
-                resBox.innerText = "Kapcsolódási hiba. Próbáld meg megnyitni a fájlt közvetlenül a gépedről!";
+                resBox.innerText = "Kapcsolódási hiba. Mentsd le a fájlt a gépedre!";
             }
         };
     </script>
